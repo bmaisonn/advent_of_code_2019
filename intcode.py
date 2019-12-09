@@ -26,13 +26,15 @@ class IntCode:
         """
         Read value from the input
         """
+        if not self.program_inputs:
+            return 0
         return self.program_inputs.pop(0)
 
     def output(self, v):
         """
         outputs the value
         """
-        print(v)
+        return self.program_inputs.append(v)
 
     @classmethod
     def parameter_mode(cls, instruction, nth):
@@ -178,6 +180,54 @@ class IntCode:
             except HaltExecution:
                 break
 
+def generate_5uple():
+    for i in range(5):
+        for j in range(5):
+            if j == i:
+                continue
+            for k in range(5):
+                if k in (i,j):
+                    continue
+                for l in range(5):
+                    if l in (i,j,k):
+                        continue
+                    for m in range(5):
+                        if m in (i,j,k,l):
+                            continue
+                        yield (i,j,k,l,m)
+
+
 if __name__ == '__main__':
-    intcode = IntCode('/mnt/c/Users/Bertrand/Documents/advent/input3_intcode_program_day5.txt', [5])
-    intcode.run()
+    max_result = None
+    for (i,j,k,l,m) in generate_5uple():
+        program_inputs = [i]
+        # A
+        intcode = IntCode('/mnt/c/Users/Bertrand/Documents/advent/input4_intcode_program_day7.txt', program_inputs)
+        intcode.run()
+
+        # B
+        program_inputs.insert(0, j)
+        intcode = IntCode('/mnt/c/Users/Bertrand/Documents/advent/input4_intcode_program_day7.txt', program_inputs)
+        intcode.run()
+
+        # C
+        program_inputs.insert(0, k)
+        intcode = IntCode('/mnt/c/Users/Bertrand/Documents/advent/input4_intcode_program_day7.txt', program_inputs)
+        intcode.run()
+
+        # D
+        program_inputs.insert(0, l)
+        intcode = IntCode('/mnt/c/Users/Bertrand/Documents/advent/input4_intcode_program_day7.txt', program_inputs)
+        intcode.run()
+
+        # E
+        program_inputs.insert(0, m)
+        intcode = IntCode('/mnt/c/Users/Bertrand/Documents/advent/input4_intcode_program_day7.txt', program_inputs)
+        intcode.run()
+
+        thurster_value = program_inputs.pop(0)
+
+        if not max_result or thurster_value > max_result:
+            max_result = thurster_value
+
+    print(max_result)
