@@ -4,15 +4,19 @@ class UnknownOpCode(Exception):
 class HaltExecution(Exception):
     pass
 
+class MissingInput(Exception):
+    pass
+
 class IntCode:
     """
     Interpret the program given in constructor
     """
-    def __init__(self, program_path, program_inputs):
+    def __init__(self, program_path, program_inputs, program_outputs):
         with open(program_path) as f:
             self.program = [int(x) for x in f.read().split(',') if x]
             self.program_size = len(self.program)
         self.program_inputs = program_inputs
+        self.program_outputs = program_outputs
         self.curr_pos = 0
 
     def store_value(self, pos, v):
@@ -27,14 +31,14 @@ class IntCode:
         Read value from the input
         """
         if not self.program_inputs:
-            return 0
+            raise MissingInput()
         return self.program_inputs.pop(0)
 
     def output(self, v):
         """
         outputs the value
         """
-        return self.program_inputs.append(v)
+        return self.program_outputs.append(v)
 
     @classmethod
     def parameter_mode(cls, instruction, nth):
@@ -172,7 +176,6 @@ class IntCode:
         """
         Starting from position 0 run the program
         """
-        self.curr_pos = 0
         while self.curr_pos < self.program_size:
             instruction = str(self.program[self.curr_pos])
             try:
@@ -181,51 +184,47 @@ class IntCode:
                 break
 
 def generate_5uple():
-    for i in range(5):
-        for j in range(5):
-            if j == i:
-                continue
-            for k in range(5):
-                if k in (i,j):
-                    continue
-                for l in range(5):
-                    if l in (i,j,k):
-                        continue
-                    for m in range(5):
-                        if m in (i,j,k,l):
-                            continue
-                        yield (i,j,k,l,m)
-
+    return ((i,j,k,l,m) for i in range(5,10)\
+                        for j in range(5,10) if j != i\
+                        for k in range(5,10) if k not in (i,j)\
+                        for l in range(5,10) if l not in (i,j,k)\
+                        for m in range(5,10) if m not in (i,j,k,l))
 
 if __name__ == '__main__':
     max_result = None
+    program_path = '/mnt/c/Users/Bertrand/Documents/advent/input4_intcode_program_day7.txt'
+
+
     for (i,j,k,l,m) in generate_5uple():
-        program_inputs = [i]
-        # A
-        intcode = IntCode('/mnt/c/Users/Bertrand/Documents/advent/input4_intcode_program_day7.txt', program_inputs)
-        intcode.run()
+        program_inputs = [0]
+        program_outputs = []
+        programs = {x:IntCode(program_path, program_inputs, program_outputs) for x in ('A','B','C','D','E')}
 
-        # B
-        program_inputs.insert(0, j)
-        intcode = IntCode('/mnt/c/Users/Bertrand/Documents/advent/input4_intcode_program_day7.txt', program_inputs)
-        intcode.run()
+        if (i,j,k,l,m) == (9,8,7,6,5):
+            print("toto")
 
-        # C
-        program_inputs.insert(0, k)
-        intcode = IntCode('/mnt/c/Users/Bertrand/Documents/advent/input4_intcode_program_day7.txt', program_inputs)
-        intcode.run()
+        last_E_output = None
+        initialized = {x:False for x in programs.keys()}
 
-        # D
-        program_inputs.insert(0, l)
-        intcode = IntCode('/mnt/c/Users/Bertrand/Documents/advent/input4_intcode_program_day7.txt', program_inputs)
-        intcode.run()
+        while program_inputs:
+            for amp, new_input in zip(programs.keys(),(i,j,k,l,m)):
+                if not initialized[amp]:
+                    program_inputs.insert(0, new_input)
+                    initialized[amp] = True
+                if not program_inputs:
+                    break
+                try:
+                    programs[amp].run()
+                except MissingInput:
+                    pass
+                
+                if amp == 'E' and program_outputs:
+                    last_E_output = program_outputs[0]
+                program_inputs.clear()
+                program_inputs.extend(program_outputs)
+                program_outputs.clear()
 
-        # E
-        program_inputs.insert(0, m)
-        intcode = IntCode('/mnt/c/Users/Bertrand/Documents/advent/input4_intcode_program_day7.txt', program_inputs)
-        intcode.run()
-
-        thurster_value = program_inputs.pop(0)
+        thurster_value = last_E_output
 
         if not max_result or thurster_value > max_result:
             max_result = thurster_value
