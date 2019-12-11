@@ -7,6 +7,9 @@ class HaltExecution(Exception):
 class MissingInput(Exception):
     pass
 
+class InvalidParameterMode(Exception):
+    pass
+
 class IntCode:
     """
     Interpret the program given in constructor
@@ -18,6 +21,7 @@ class IntCode:
         self.program_inputs = program_inputs
         self.program_outputs = program_outputs
         self.curr_pos = 0
+        self.relative_base = 0
 
     def store_value(self, pos, v):
         len(self.program)
@@ -45,10 +49,21 @@ class IntCode:
         # parameter modes
         # 0 position mode (default)
         # 1 immediate mode
+        # 2 relative mode
         try:
             return int(instruction[-(2+nth)])
         except IndexError:
             return 0
+
+    def expected_idx(self, parameter_mode, nth):
+        if parameter_mode == 0:
+            return self.program[self.curr_pos+nth]
+        elif parameter_mode == 1:
+            return self.curr_pos+nth
+        elif parameter_mode == 2:
+            return self.program[self.curr_pos+nth] + self.relative_base
+        else:
+            raise InvalidParameterMode(f'Parameter mode {parameter_mode} doesn\'t exist')
 
     def read_parameter(self, instruction, nth):
         """
@@ -56,11 +71,11 @@ class IntCode:
         parameter mode
         """
         curr_parameter_mode = IntCode.parameter_mode(instruction, nth)
-        if curr_parameter_mode == 0:
-            return self.program[self.program[self.curr_pos+nth]]
-        else:
-            return self.program[self.curr_pos+nth]
-
+        try:
+            idx = self.expected_idx(curr_parameter_mode, nth)
+            return self.program[idx]
+        except IndexError:
+            return 0 # any index error should return
 
     def process_opcode1(self, instruction):
         """
@@ -72,7 +87,10 @@ class IntCode:
         v1 = self.read_parameter(instruction, 1)
         v2 = self.read_parameter(instruction, 2)
         res = v1 + v2  
-        self.store_value(self.program[self.curr_pos+3], res)
+
+        curr_parameter_mode = IntCode.parameter_mode(instruction, 3)
+        idx = self.expected_idx(curr_parameter_mode, 3)
+        self.store_value(idx, res)
         self.curr_pos += 4
 
     def process_opcode2(self, instruction):
@@ -85,7 +103,9 @@ class IntCode:
         v1 = self.read_parameter(instruction, 1)
         v2 = self.read_parameter(instruction, 2)
         res = v1 * v2  
-        self.store_value(self.program[self.curr_pos+3], res)
+        curr_parameter_mode = IntCode.parameter_mode(instruction, 3)
+        idx = self.expected_idx(curr_parameter_mode, 3)
+        self.store_value(idx, res)
         self.curr_pos += 4
 
     def process_opcode3(self, instruction):
@@ -96,7 +116,11 @@ class IntCode:
         input value and store it at address 50.
         """
         program_input = self.read_input()
-        self.store_value(self.program[self.curr_pos+1], program_input)
+
+        curr_parameter_mode = IntCode.parameter_mode(instruction, 1)
+        idx = self.expected_idx(curr_parameter_mode, 1)
+        self.store_value(idx, program_input)
+
         self.curr_pos += 2
 
     def process_opcode4(self, instruction):
@@ -142,7 +166,10 @@ class IntCode:
         """
         v1 = self.read_parameter(instruction, 1)
         v2 = self.read_parameter(instruction, 2)
-        self.store_value(self.program[self.curr_pos+3], 1 if v1 < v2 else 0)
+        
+        curr_parameter_mode = IntCode.parameter_mode(instruction, 3)
+        idx = self.expected_idx(curr_parameter_mode, 3)
+        self.store_value(idx, 1 if v1 < v2 else 0)
         self.curr_pos += 4
 
     def process_opcode8(self, instruction):
@@ -152,8 +179,20 @@ class IntCode:
         """
         v1 = self.read_parameter(instruction, 1)
         v2 = self.read_parameter(instruction, 2)
-        self.store_value(self.program[self.curr_pos+3], 1 if v1 == v2 else 0)
+        curr_parameter_mode = IntCode.parameter_mode(instruction, 3)
+        idx = self.expected_idx(curr_parameter_mode, 3)
+        self.store_value(idx, 1 if v1 == v2 else 0)
         self.curr_pos += 4
+
+    def process_opcode9(self, instruction):
+        """"
+        Opcode 9 adjusts the relative base by the value of its only parameter.
+        The relative base increases (or decreases, if the value is negative) 
+        by the value of the parameter.
+        """
+        v1 = self.read_parameter(instruction, 1)
+        self.relative_base += v1
+        self.curr_pos += 2
 
     def process_opcode99(self, instruction):
         """
@@ -183,50 +222,10 @@ class IntCode:
             except HaltExecution:
                 break
 
-def generate_5uple():
-    return ((i,j,k,l,m) for i in range(5,10)\
-                        for j in range(5,10) if j != i\
-                        for k in range(5,10) if k not in (i,j)\
-                        for l in range(5,10) if l not in (i,j,k)\
-                        for m in range(5,10) if m not in (i,j,k,l))
-
 if __name__ == '__main__':
-    max_result = None
-    program_path = '/mnt/c/Users/Bertrand/Documents/advent/input4_intcode_program_day7.txt'
+    program_path = '/mnt/c/temp/perso/advent_of_code/input.txt'
 
-
-    for (i,j,k,l,m) in generate_5uple():
-        program_inputs = [0]
-        program_outputs = []
-        programs = {x:IntCode(program_path, program_inputs, program_outputs) for x in ('A','B','C','D','E')}
-
-        if (i,j,k,l,m) == (9,8,7,6,5):
-            print("toto")
-
-        last_E_output = None
-        initialized = {x:False for x in programs.keys()}
-
-        while program_inputs:
-            for amp, new_input in zip(programs.keys(),(i,j,k,l,m)):
-                if not initialized[amp]:
-                    program_inputs.insert(0, new_input)
-                    initialized[amp] = True
-                if not program_inputs:
-                    break
-                try:
-                    programs[amp].run()
-                except MissingInput:
-                    pass
-                
-                if amp == 'E' and program_outputs:
-                    last_E_output = program_outputs[0]
-                program_inputs.clear()
-                program_inputs.extend(program_outputs)
-                program_outputs.clear()
-
-        thurster_value = last_E_output
-
-        if not max_result or thurster_value > max_result:
-            max_result = thurster_value
-
-    print(max_result)
+    outputs = []
+    intcode_program = IntCode(program_path, [2], outputs)
+    intcode_program.run()
+    print(outputs)
