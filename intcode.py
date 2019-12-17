@@ -200,9 +200,6 @@ if __name__ == '__main__':
         program_outputs = []
         programs = {x:IntCode(program_path, program_inputs, program_outputs) for x in ('A','B','C','D','E')}
 
-        if (i,j,k,l,m) == (9,8,7,6,5):
-            print("toto")
-
         last_E_output = None
         initialized = {x:False for x in programs.keys()}
 
